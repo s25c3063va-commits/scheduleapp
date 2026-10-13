@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>スマート スケジュール帳</title>
+  
+  <!-- PWA & アプリ表示設定 (iOS & Android) -->
+  <meta name="theme-color" content="#4338ca">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="スケジュール">
+  <meta name="mobile-web-app-capable" content="yes">
+  
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- ヘッダーエリア -->
+  <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-20 pt-safe">
+    <div class="max-w-5xl mx-auto px-3 sm:px-6 py-2.5 flex flex-row justify-between items-center gap-2">
+      <!-- タイトル -->
+      <div class="flex items-center gap-2">
+        <div class="bg-white/10 p-1.5 sm:p-2 rounded-xl backdrop-blur-sm flex items-center justify-center">
+          <i class="fa-solid fa-calendar-check text-lg sm:text-xl text-indigo-200"></i>
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-bold tracking-wide leading-tight">スケジュール帳</h1>
+          <p class="text-[9px] sm:text-[10px] text-indigo-200">Personal Planner</p>
+        </div>
+      </div>
+
+      <!-- 右側：時計 -->
+      <div class="flex items-center gap-1.5">
+        <div class="bg-indigo-900/50 backdrop-blur-md px-2.5 py-1 rounded-xl border border-indigo-500/30 shadow-inner flex items-center gap-2">
+          <div class="text-right">
+            <div id="current-date" class="text-[9px] text-indigo-200 font-medium leading-none">----/--/--</div>
+            <div id="current-time" class="text-xs font-mono font-bold tracking-wider leading-none text-white mt-0.5">--:--:--</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- メインコンテンツ -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-2.5 sm:px-6 py-3 flex flex-col gap-3">
+
+    <!-- コントロールバー -->
+    <div class="bg-white rounded-2xl p-2.5 sm:p-3 shadow-xs border border-slate-200/80 flex flex-col sm:flex-row justify-between items-center gap-2.5">
+      
+      <!-- 検索入力欄（入力時に自動でリスト表示へ切替） -->
+      <div class="relative w-full sm:w-72">
+        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+        <input type="text" id="search-input" placeholder="予定を検索..." 
+               class="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+        <button id="search-clear-btn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+          <i class="fa-solid fa-circle-xmark text-xs"></i>
+        </button>
+      </div>
+
+      <!-- デスクトップ用 ビュー切替 & 追加ボタン -->
+      <div class="hidden sm:flex items-center gap-2 w-auto justify-end">
+        <!-- 表示モード切替 -->
+        <div class="bg-slate-100 p-1 rounded-xl flex items-center border border-slate-200">
+          <button id="btn-calendar-view" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-indigo-600 bg-white shadow-sm flex items-center gap-1">
+            <i class="fa-regular fa-calendar-days"></i> カレンダー
+          </button>
+          <button id="btn-list-view" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all text-slate-600 hover:text-slate-900 flex items-center gap-1">
+            <i class="fa-solid fa-list-ul"></i> リスト
+          </button>
+        </div>
+
+        <!-- 予定追加ボタン -->
+        <button id="btn-open-add-modal" class="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white px-3.5 py-2 rounded-xl font-medium text-xs shadow-md flex items-center gap-1.5 transition-all">
+          <i class="fa-solid fa-plus"></i> 追加
+        </button>
+      </div>
+    </div>
+
+    <!-- カレンダービュー -->
+    <div id="calendar-view-container" class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-2.5 sm:p-5 flex flex-col gap-2.5">
+      <!-- カレンダー年月ナビ -->
+      <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <h2 id="calendar-month-year" class="text-base sm:text-lg font-bold text-slate-800">2026年 10月</h2>
+          <button id="btn-today" class="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold rounded-lg border border-indigo-200 transition-colors">今日</button>
+        </div>
+        <div class="flex items-center gap-1">
+          <span class="text-[10px] text-slate-400 mr-1 hidden sm:inline"><i class="fa-solid fa-arrows-left-right"></i> スワイプで切替可</span>
+          <button id="btn-prev-month" class="p-2 sm:p-1.5 hover:bg-slate-100 active:bg-slate-200 rounded-lg text-slate-600 transition-colors">
+            <i class="fa-solid fa-chevron-left text-sm sm:text-xs"></i>
+          </button>
+          <button id="btn-next-month" class="p-2 sm:p-1.5 hover:bg-slate-100 active:bg-slate-200 rounded-lg text-slate-600 transition-colors">
+            <i class="fa-solid fa-chevron-right text-sm sm:text-xs"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- カレンダーグリッド -->
+      <div class="grid grid-cols-7 text-center font-semibold text-xs text-slate-500 border-b border-slate-100 pb-1">
+        <span class="text-red-500">日</span>
+        <span>月</span>
+        <span>火</span>
+        <span>水</span>
+        <span>木</span>
+        <span>金</span>
+        <span class="text-blue-500">土</span>
+      </div>
+      <div id="calendar-grid" class="grid grid-cols-7 gap-1 auto-rows-fr touch-pan-y">
+        <!-- 動的カレンダーセル -->
+      </div>
+    </div>
+
+    <!-- リストビュー -->
+    <div id="list-view-container" class="hidden bg-white rounded-2xl shadow-xs border border-slate-200/80 p-3 sm:p-5 flex-col gap-3">
+      <!-- リストフィルター -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <h2 class="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-1.5">
+            <i class="fa-solid fa-list-check text-indigo-600"></i> 予定一覧
+          </h2>
+          <span id="event-count-badge" class="bg-indigo-100 text-indigo-800 text-[11px] px-2 py-0.5 rounded-full font-bold">0件</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <select id="filter-period" class="bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            <option value="all">全期間</option>
+            <option value="upcoming" selected>今後</option>
+            <option value="today">今日</option>
+            <option value="past">過去</option>
+          </select>
+          <select id="filter-status" class="bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            <option value="all">全て</option>
+            <option value="pending">未完了</option>
+            <option value="completed">完了</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 予定カードリスト -->
+      <div id="event-list-items" class="flex flex-col gap-2 min-h-[200px]">
+        <!-- 動的リストカード -->
+      </div>
+    </div>
+  </main>
+
+  <!-- スマホ用 固定ボトムナビゲーションバー -->
+  <nav class="sm:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 z-30 pb-safe shadow-lg">
+    <div class="grid grid-cols-3 h-14 items-center px-4">
+      <!-- 1. カレンダータブ -->
+      <button id="bottom-nav-calendar" class="flex flex-col items-center justify-center py-1 text-indigo-600 transition-colors">
+        <i class="fa-regular fa-calendar-days text-lg"></i>
+        <span class="text-[10px] font-bold mt-0.5">カレンダー</span>
+      </button>
+
+      <!-- 2. 追加ボタン (画面下中央・FAB) -->
+      <div class="flex items-center justify-center">
+        <button id="bottom-nav-add" class="w-12 h-12 rounded-full bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center shadow-lg -translate-y-2.5 transition-transform active:scale-95 ring-4 ring-white" aria-label="予定を追加">
+          <i class="fa-solid fa-plus text-xl"></i>
+        </button>
+      </div>
+
+      <!-- 3. 一覧タブ -->
+      <button id="bottom-nav-list" class="flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-600 transition-colors">
+        <i class="fa-solid fa-list-ul text-lg"></i>
+        <span class="text-[10px] font-medium mt-0.5">一覧</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- 日別詳細ボトムシート (スマホで日付タップ時に表示) -->
+  <div id="day-detail-sheet" class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 hidden flex flex-col justify-end sm:justify-center items-center p-0 sm:p-4">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl w-full max-w-lg shadow-2xl max-h-[85vh] flex flex-col overflow-hidden animate-slide-up">
+      <div class="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+        <div class="flex items-center gap-2">
+          <div class="w-1.5 h-5 bg-indigo-600 rounded-full"></div>
+          <div>
+            <h3 id="day-sheet-title" class="font-bold text-sm sm:text-base text-slate-800">2026年10月06日 (火)</h3>
+            <span id="day-sheet-count" class="text-[10px] text-slate-500 font-medium">0件の予定</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button id="btn-sheet-add-event" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 shadow-xs">
+            <i class="fa-solid fa-plus"></i> 追加
+          </button>
+          <button id="btn-close-day-sheet" class="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+      </div>
+      
+      <!-- シート内予定一覧 -->
+      <div id="day-sheet-items" class="p-3 flex flex-col gap-2 overflow-y-auto max-h-[50vh] scrollbar-thin">
+        <!-- 動的カード -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 予定の追加・編集 Modal / ボトムシート -->
+  <div id="event-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-3 hidden opacity-0 transition-opacity duration-200">
+    <div class="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100 transform transition-transform duration-200 scale-95 max-h-[90vh] flex flex-col" id="modal-card">
+      <div class="bg-indigo-600 text-white px-4 py-3 flex items-center justify-between shrink-0">
+        <h3 id="modal-title" class="font-bold text-sm sm:text-base flex items-center gap-2">
+          <i class="fa-solid fa-calendar-plus"></i> 予定を追加
+        </h3>
+        <button id="btn-close-modal" class="p-1 text-indigo-200 hover:text-white transition-colors">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="event-form" class="p-4 flex flex-col gap-3 overflow-y-auto scrollbar-thin flex-1 pb-safe">
+        <input type="hidden" id="event-id">
+
+        <!-- クイック履歴からの入力エリア -->
+        <div id="quick-history-section" class="bg-indigo-50/70 border border-indigo-100 rounded-xl p-2.5">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[11px] font-bold text-indigo-900 flex items-center gap-1">
+              <i class="fa-solid fa-bolt text-amber-500"></i> 最近の予定から自動入力
+            </span>
+            <button type="button" id="btn-clear-history" class="text-[10px] text-slate-400 hover:text-red-500">クリア</button>
+          </div>
+          <div id="quick-history-chips" class="flex flex-wrap gap-1 max-h-16 overflow-y-auto scrollbar-thin">
+            <!-- 履歴チップ -->
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">予定タイトル <span class="text-red-500">*</span></label>
+          <input type="text" id="event-title-input" required placeholder="例: ミーティング、買い出し" 
+                 class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">日付 <span class="text-red-500">*</span></label>
+            <input type="date" id="event-date-input" required class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">時間</label>
+            <input type="time" id="event-time-input" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-2.5 flex flex-col gap-1.5">
+          <label class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate-right text-indigo-600"></i> 繰り返し設定
+          </label>
+          <select id="event-repeat-select" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <option value="none">なし（1回のみ）</option>
+            <option value="daily">毎日</option>
+            <option value="weekly">毎週</option>
+            <option value="monthly">毎月</option>
+            <option value="yearly">毎年</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">カテゴリ</label>
+            <select id="event-category-input" class="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+              <option value="仕事">仕事</option>
+              <option value="プライベート">プライベート</option>
+              <option value="勉強">勉強</option>
+              <option value="重要">重要</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">カラーテーマ</label>
+            <div class="flex items-center gap-2 pt-1">
+              <label class="cursor-pointer"><input type="radio" name="event-color" value="blue" checked class="hidden peer"><span class="w-6 h-6 rounded-full bg-blue-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-blue-500"></span></label>
+              <label class="cursor-pointer"><input type="radio" name="event-color" value="emerald" class="hidden peer"><span class="w-6 h-6 rounded-full bg-emerald-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-emerald-500"></span></label>
+              <label class="cursor-pointer"><input type="radio" name="event-color" value="purple" class="hidden peer"><span class="w-6 h-6 rounded-full bg-purple-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-purple-500"></span></label>
+              <label class="cursor-pointer"><input type="radio" name="event-color" value="amber" class="hidden peer"><span class="w-6 h-6 rounded-full bg-amber-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-amber-500"></span></label>
+              <label class="cursor-pointer"><input type="radio" name="event-color" value="rose" class="hidden peer"><span class="w-6 h-6 rounded-full bg-rose-500 block peer-checked:ring-2 peer-checked:ring-offset-2 peer-checked:ring-rose-500"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">詳細メモ</label>
+          <textarea id="event-description-input" rows="2" placeholder="詳細メモを入力..." class="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" id="btn-cancel-modal" class="px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">キャンセル</button>
+          <button type="submit" class="px-5 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script src="Script.js"></script>
+</body>
+</html>
